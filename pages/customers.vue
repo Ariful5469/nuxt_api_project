@@ -75,73 +75,62 @@ export default {
       customers: [],
       newCustomer: { fname: '', lname: '', email: '', phone: '' },
       editingCustomer: null, // Track the customer being edited
+      apiUrl: 'https://wonderful-faloodeh-e3adf5.netlify.app/api/customers', // Full API URL
     };
   },
   async mounted() {
     try {
-      const response = await fetch('/api/customers');
-      this.customers = await response.json();
+      const response = await fetch(this.apiUrl);
+      if (response.ok) {
+        this.customers = await response.json();
+      } else {
+        console.error('Error fetching customers:', response.statusText);
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
     }
   },
   methods: {
     async handleSubmit() {
-  try {
-    let response;
-    if (this.editingCustomer) {
-      // Update existing customer
-      console.log('Updating customer data:', this.newCustomer);
-      
-      response = await fetch(`/api/customers/${this.editingCustomer._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.newCustomer),
-      });
+      try {
+        let response;
+        const url = this.editingCustomer
+          ? `${this.apiUrl}/${this.editingCustomer._id}`
+          : this.apiUrl;
+        const method = this.editingCustomer ? 'PUT' : 'POST';
 
-      if (response.ok) {
-        const updatedCustomer = await response.json();
-        console.log('Updated customer:', updatedCustomer);
+        console.log(`${this.editingCustomer ? 'Updating' : 'Creating'} customer:`, this.newCustomer);
 
-        const index = this.customers.findIndex(
-          (customer) => customer._id === updatedCustomer._id
-        );
+        response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.newCustomer),
+        });
 
-        if (index !== -1) {
-          this.customers.splice(index, 1, updatedCustomer);
+        if (response.ok) {
+          const customer = await response.json();
+          if (this.editingCustomer) {
+            const index = this.customers.findIndex(
+              (customer) => customer._id === this.editingCustomer._id
+            );
+            if (index !== -1) {
+              this.customers.splice(index, 1, customer); // Update the customer in the list
+            }
+          } else {
+            this.customers.push(customer); // Add the new customer to the list
+          }
+          this.resetForm();
+        } else {
+          const errorText = await response.text();
+          console.error(`${this.editingCustomer ? 'Updating' : 'Creating'} customer failed:`, errorText);
         }
-
-        this.resetForm();
-      } else {
-        const errorText = await response.text();
-        console.error('Error updating customer:', errorText);
+      } catch (error) {
+        console.error('Error in handleSubmit:', error);
       }
-    } else {
-      // Add new customer
-      console.log('Creating new customer:', this.newCustomer);
-
-      response = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(this.newCustomer),
-      });
-
-      if (response.ok) {
-        const customer = await response.json();
-        this.customers.push(customer);
-        this.resetForm();
-      } else {
-        const errorText = await response.text();
-        console.error('Error creating customer:', errorText);
-      }
-    }
-  } catch (error) {
-    console.error('Error in handleSubmit:', error);
-  }
-},
+    },
     async deleteCustomer(id) {
       try {
-        const response = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${this.apiUrl}/${id}`, { method: 'DELETE' });
         if (response.ok) {
           this.customers = this.customers.filter((c) => c._id !== id);
         } else {
