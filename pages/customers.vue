@@ -6,19 +6,35 @@
     <form @submit.prevent="handleSubmit">
       <label>
         First Name:
-        <input type="text" v-model="newCustomer.fname" required />
+        <input
+          type="text"
+          v-model="newCustomer.fname"
+          required
+        />
       </label>
       <label>
         Last Name:
-        <input type="text" v-model="newCustomer.lname" required />
+        <input
+          type="text"
+          v-model="newCustomer.lname"
+          required
+        />
       </label>
       <label>
         Email:
-        <input type="email" v-model="newCustomer.email" required />
+        <input
+          type="email"
+          v-model="newCustomer.email"
+          required
+        />
       </label>
       <label>
         Phone:
-        <input type="tel" v-model="newCustomer.phone" required />
+        <input
+          type="tel"
+          v-model="newCustomer.phone"
+          required
+        />
       </label>
       <button type="submit">{{ editingCustomer ? 'Update Customer' : 'Add Customer' }}</button>
     </form>
@@ -64,61 +80,65 @@ export default {
   async mounted() {
     try {
       const response = await fetch('/api/customers');
-      if (response.ok) {
-        this.customers = await response.json();
-      } else {
-        console.error('Error fetching customers:', response.statusText);
-      }
+      this.customers = await response.json();
     } catch (error) {
       console.error('Error fetching customers:', error);
     }
   },
   methods: {
     async handleSubmit() {
-      try {
-        let response;
-        if (this.editingCustomer) {
-          // Update existing customer
-          response = await fetch(`/api/customers/${this.editingCustomer._id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.newCustomer),
-          });
+  try {
+    let response;
+    if (this.editingCustomer) {
+      // Update existing customer
+      console.log('Updating customer data:', this.newCustomer);
+      
+      response = await fetch(`/api/customers/${this.editingCustomer._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.newCustomer),
+      });
 
-          if (response.ok) {
-            const updatedCustomer = await response.json();
-            const index = this.customers.findIndex(
-              (customer) => customer._id === updatedCustomer._id
-            );
+      if (response.ok) {
+        const updatedCustomer = await response.json();
+        console.log('Updated customer:', updatedCustomer);
 
-            if (index !== -1) {
-              this.customers.splice(index, 1, updatedCustomer);
-            }
+        const index = this.customers.findIndex(
+          (customer) => customer._id === updatedCustomer._id
+        );
 
-            this.resetForm();
-          } else {
-            console.error('Error updating customer:', await response.text());
-          }
-        } else {
-          // Add new customer
-          response = await fetch('/api/customers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.newCustomer),
-          });
-
-          if (response.ok) {
-            const customer = await response.json();
-            this.customers.push(customer);
-            this.resetForm();
-          } else {
-            console.error('Error creating customer:', await response.text());
-          }
+        if (index !== -1) {
+          this.customers.splice(index, 1, updatedCustomer);
         }
-      } catch (error) {
-        console.error('Error in handleSubmit:', error);
+
+        this.resetForm();
+      } else {
+        const errorText = await response.text();
+        console.error('Error updating customer:', errorText);
       }
-    },
+    } else {
+      // Add new customer
+      console.log('Creating new customer:', this.newCustomer);
+
+      response = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.newCustomer),
+      });
+
+      if (response.ok) {
+        const customer = await response.json();
+        this.customers.push(customer);
+        this.resetForm();
+      } else {
+        const errorText = await response.text();
+        console.error('Error creating customer:', errorText);
+      }
+    }
+  } catch (error) {
+    console.error('Error in handleSubmit:', error);
+  }
+},
     async deleteCustomer(id) {
       try {
         const response = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
@@ -133,7 +153,7 @@ export default {
     },
     editCustomer(customer) {
       this.editingCustomer = customer;
-      this.newCustomer = { ...customer }; // Populate the form with the customer data
+      this.newCustomer = { ...customer }; // Pre-fill the form with customer data
     },
     resetForm() {
       this.newCustomer = { fname: '', lname: '', email: '', phone: '' };
@@ -142,7 +162,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-/* Add your styles here */
-</style>

@@ -59,6 +59,10 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
     }
 
+    // Log the data for debugging
+    console.log('Updating customer with ID:', id);
+    console.log('Request Body:', body);
+
     try {
       const updatedCustomer = await Customer.findByIdAndUpdate(id, body, {
         new: true,
@@ -69,6 +73,7 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
       }
 
+      console.log('Updated Customer:', updatedCustomer);
       return updatedCustomer;
     } catch (error) {
       console.error('Error updating customer:', error);
@@ -89,12 +94,15 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
     }
 
+    console.log('Deleting customer with ID:', id);
+
     try {
       const deletedCustomer = await Customer.findByIdAndDelete(id);
       if (!deletedCustomer) {
         throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
       }
 
+      console.log('Deleted customer:', deletedCustomer);
       return { message: 'Customer deleted successfully' };
     } catch (error) {
       console.error('Error deleting customer:', error);
