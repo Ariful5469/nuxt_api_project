@@ -1,5 +1,4 @@
-// Default export of the Customer model
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const customerSchema = new mongoose.Schema({
   fname: { type: String, required: true },
@@ -11,4 +10,4 @@ const customerSchema = new mongoose.Schema({
 
 const Customer = mongoose.model('Customer', customerSchema);
 
-module.exports = Customer; // Default export
+export default Customer; // ES module export
