@@ -1,22 +1,17 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 
-// Load environment variables from .env file
+// Load .env variables
 dotenv.config();
 
 const connectDB = async () => {
   try {
     if (mongoose.connection.readyState === 0) {
-      // Use the environment variable for the MongoDB URI
-      const dbURI = process.env.MONGO_URI;
-
-      // Connecting to MongoDB Atlas without the deprecated options
-      await mongoose.connect(dbURI);  // No need for useNewUrlParser and useUnifiedTopology
-      
+      await mongoose.connect(process.env.MONGO_URI); // Ensure MONGO_URI is correctly set in your Netlify environment variables
       console.log('MongoDB Connected');
     }
   } catch (err) {
-    console.error('MongoDB Connection Error:', err);
+    console.error('MongoDB Connection Error:', err.message);
     process.exit(1);
   }
 };
