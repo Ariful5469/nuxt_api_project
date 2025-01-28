@@ -36,8 +36,16 @@
           required
         />
       </label>
-      <button type="submit">{{ editingCustomer ? 'Update Customer' : 'Add Customer' }}</button>
+      <button type="submit" :disabled="loading">
+        {{ editingCustomer ? 'Update Customer' : 'Add Customer' }}
+      </button>
     </form>
+
+    <!-- Loading Indicator -->
+    <p v-if="loading">Loading...</p>
+
+    <!-- Error Message -->
+    <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
 
     <!-- Customer Table -->
     <table v-if="customers.length">
@@ -75,7 +83,9 @@ export default {
       customers: [],
       newCustomer: { fname: '', lname: '', email: '', phone: '' },
       editingCustomer: null, // Track the customer being edited
-      apiUrl: 'https://wonderful-faloodeh-e3adf5.netlify.app/api/customers', // Full API URL
+      apiUrl: process.env.VUE_APP_API_URL || '/api/customers', // Use environment variable
+      loading: false,
+      errorMessage: null, // To display error messages
     };
   },
   async mounted() {
@@ -83,18 +93,25 @@ export default {
   },
   methods: {
     async fetchCustomers() {
+      this.loading = true;
+      this.errorMessage = null;
       try {
         const response = await fetch(this.apiUrl);
         if (response.ok) {
           this.customers = await response.json();
         } else {
-          console.error('Error fetching customers:', response.statusText);
+          this.errorMessage = 'Error fetching customers.';
         }
       } catch (error) {
-        console.error('Error fetching customers:', error.message);
+        this.errorMessage = 'Error fetching customers.';
+        console.error('Fetch error:', error.message);
+      } finally {
+        this.loading = false;
       }
     },
     async handleSubmit() {
+      this.loading = true;
+      this.errorMessage = null;
       try {
         const url = this.editingCustomer
           ? `${this.apiUrl}/${this.editingCustomer._id}`
@@ -110,7 +127,6 @@ export default {
         if (response.ok) {
           const customer = await response.json();
           if (this.editingCustomer) {
-            // Update the existing customer
             const index = this.customers.findIndex(
               (c) => c._id === this.editingCustomer._id
             );
@@ -118,33 +134,39 @@ export default {
               this.customers.splice(index, 1, customer);
             }
           } else {
-            // Add a new customer
             this.customers.push(customer);
           }
           this.resetForm();
         } else {
-          const errorText = await response.text();
-          console.error('Error saving customer:', errorText);
+          this.errorMessage = 'Error saving customer.';
         }
       } catch (error) {
-        console.error('Error in handleSubmit:', error.message);
+        this.errorMessage = 'Error saving customer.';
+        console.error('Submit error:', error.message);
+      } finally {
+        this.loading = false;
       }
     },
     async deleteCustomer(id) {
+      this.loading = true;
+      this.errorMessage = null;
       try {
         const response = await fetch(`${this.apiUrl}/${id}`, { method: 'DELETE' });
         if (response.ok) {
           this.customers = this.customers.filter((customer) => customer._id !== id);
         } else {
-          console.error('Error deleting customer:', response.statusText);
+          this.errorMessage = 'Error deleting customer.';
         }
       } catch (error) {
-        console.error('Error deleting customer:', error.message);
+        this.errorMessage = 'Error deleting customer.';
+        console.error('Delete error:', error.message);
+      } finally {
+        this.loading = false;
       }
     },
     editCustomer(customer) {
       this.editingCustomer = customer;
-      this.newCustomer = { ...customer }; // Pre-fill the form with customer data
+      this.newCustomer = { ...customer };
     },
     resetForm() {
       this.newCustomer = { fname: '', lname: '', email: '', phone: '' };
@@ -153,3 +175,9 @@ export default {
   },
 };
 </script>
+
+<style>
+.error {
+  color: red;
+}
+</style>
