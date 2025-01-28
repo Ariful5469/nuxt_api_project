@@ -5,6 +5,10 @@
       "dest": "/.netlify/functions/$1"
     },
     {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
