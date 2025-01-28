@@ -1,8 +1,17 @@
 import connectDB from '../utils/connectDB';
 import Customer from '../models/Customer';
 import mongoose from 'mongoose';
+import cors =requre('cors')
 
 export default defineEventHandler(async (event) => {
+  const app=express()
+  
+app.use(cors({
+  origin: ["https://wonderful-faloodeh-e3adf5.netlify.app"],  // Replace with your front-end URL
+  methods: ["GET", "POST", "PUT", "DELETE"],  // Allow specific HTTP methods
+  credentials:true
+}));
+  app.use(express.json())
   await connectDB();
   const method = event.node.req.method;
 
