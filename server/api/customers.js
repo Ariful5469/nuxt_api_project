@@ -2,15 +2,21 @@ import connectDB from '../utils/connectDB';
 import Customer from '../models/Customer';
 import mongoose from 'mongoose';
 
-// Define the API handler
 export default defineEventHandler(async (event) => {
-  // Set up CORS headers
-  event.node.res.setHeader("Access-Control-Allow-Origin", "https://wonderful-faloodeh-e3adf5.netlify.app");
-  event.node.res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  const origin = event.node.req.headers.origin;
+
+  // Handle CORS
+  event.node.res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  event.node.res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  event.node.res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   event.node.res.setHeader("Access-Control-Allow-Credentials", "true");
 
-  // Ensure the request body is parsed
-  const body = event.node.req.method === 'POST' || event.node.req.method === 'PUT' ? await readBody(event) : null;
+  // Handle preflight requests
+  if (event.node.req.method === "OPTIONS") {
+    event.node.res.statusCode = 204;
+    event.node.res.end();
+    return;
+  }
 
   // Connect to the database
   await connectDB();
@@ -20,7 +26,6 @@ export default defineEventHandler(async (event) => {
 
   try {
     if (method === 'GET') {
-      // Fetch all customers or a specific customer by ID
       if (id) {
         if (!mongoose.Types.ObjectId.isValid(id)) {
           throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
@@ -32,43 +37,52 @@ export default defineEventHandler(async (event) => {
         }
         return customer;
       }
-
       const customers = await Customer.find();
       return customers;
+    }
 
-    } else if (method === 'POST') {
-      // Create a new customer
-      if (!body) {
-        throw createError({ statusCode: 400, statusMessage: 'Request body is missing' });
-      }
-
+    if (method === 'POST') {
+      const body = await readBody(event);
       const newCustomer = new Customer(body);
-      await newCustomer.save();
-      return { message: 'Customer created successfully', customer: newCustomer };
 
-    } else if (method === 'PUT') {
-      // Update an existing customer
-      if (!id || !body) {
-        throw createError({ statusCode: 400, statusMessage: 'Customer ID and request body are required for update' });
+      try {
+        await newCustomer.save();
+        return newCustomer;
+      } catch (error) {
+        console.error('Error saving customer:', error);
+        throw createError({ statusCode: 500, statusMessage: 'Error saving customer' });
+      }
+    }
+
+    if (method === 'PUT') {
+      if (!id) {
+        throw createError({ statusCode: 400, statusMessage: 'Customer ID is required for update' });
       }
 
       if (!mongoose.Types.ObjectId.isValid(id)) {
         throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
       }
 
-      const updatedCustomer = await Customer.findByIdAndUpdate(id, body, {
-        new: true,
-        runValidators: true,
-      });
+      const body = await readBody(event);
 
-      if (!updatedCustomer) {
-        throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
+      try {
+        const updatedCustomer = await Customer.findByIdAndUpdate(id, body, {
+          new: true,
+          runValidators: true
+        });
+
+        if (!updatedCustomer) {
+          throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
+        }
+
+        return updatedCustomer;
+      } catch (error) {
+        console.error('Error updating customer:', error);
+        throw createError({ statusCode: 500, statusMessage: 'Error updating customer' });
       }
+    }
 
-      return { message: 'Customer updated successfully', customer: updatedCustomer };
-
-    } else if (method === 'DELETE') {
-      // Delete a customer
+    if (method === 'DELETE') {
       if (!id) {
         throw createError({ statusCode: 400, statusMessage: 'Customer ID is required for deletion' });
       }
@@ -77,19 +91,23 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
       }
 
-      const deletedCustomer = await Customer.findByIdAndDelete(id);
-      if (!deletedCustomer) {
-        throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
+      try {
+        const deletedCustomer = await Customer.findByIdAndDelete(id);
+        if (!deletedCustomer) {
+          throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
+        }
+
+        return { message: 'Customer deleted successfully' };
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        throw createError({ statusCode: 500, statusMessage: 'Error deleting customer' });
       }
-
-      return { message: 'Customer deleted successfully' };
-
-    } else {
-      // Handle unsupported HTTP methods
-      throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' });
     }
+
+    // Handle unsupported HTTP methods
+    throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' });
   } catch (error) {
-    console.error('Error in API handler:', error);
-    throw createError({ statusCode: 500, statusMessage: 'Internal Server Error' });
+    console.error('API Error:', error);
+    throw createError({ statusCode: error.statusCode || 500, statusMessage: error.message || 'Internal Server Error' });
   }
 });
