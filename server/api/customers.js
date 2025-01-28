@@ -1,124 +1,95 @@
 import connectDB from '../utils/connectDB';
 import Customer from '../models/Customer';
 import mongoose from 'mongoose';
-import cors =requre('cors')
 
+// Define the API handler
 export default defineEventHandler(async (event) => {
-  const app=express()
-  
-app.use(cors({
-  origin: ["https://wonderful-faloodeh-e3adf5.netlify.app"],  // Replace with your front-end URL
-  methods: ["GET", "POST", "PUT", "DELETE"],  // Allow specific HTTP methods
-  credentials:true
-}));
-  app.use(express.json())
-  await connectDB();
-  const method = event.node.req.method;
+  // Set up CORS headers
+  event.node.res.setHeader("Access-Control-Allow-Origin", "https://wonderful-faloodeh-e3adf5.netlify.app");
+  event.node.res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  event.node.res.setHeader("Access-Control-Allow-Credentials", "true");
 
-  // Handler for GET request to fetch customers or a specific customer by ID
-  if (method === 'GET') {
-    const id = event.context.params?.id;
-    if (id) {
-      try {
+  // Ensure the request body is parsed
+  const body = event.node.req.method === 'POST' || event.node.req.method === 'PUT' ? await readBody(event) : null;
+
+  // Connect to the database
+  await connectDB();
+
+  const method = event.node.req.method;
+  const id = event.context.params?.id;
+
+  try {
+    if (method === 'GET') {
+      // Fetch all customers or a specific customer by ID
+      if (id) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
+        }
+
         const customer = await Customer.findById(id);
         if (!customer) {
           throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
         }
         return customer;
-      } catch (error) {
-        console.error('Error fetching customer by ID:', error);
-        throw createError({ statusCode: 500, statusMessage: 'Error fetching customer' });
       }
-    }
 
-    try {
       const customers = await Customer.find();
       return customers;
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      throw createError({ statusCode: 500, statusMessage: 'Error fetching customers' });
-    }
-  }
 
-  // Handler for POST request to create a new customer
-  if (method === 'POST') {
-    const body = await readBody(event);
-    const newCustomer = new Customer(body);
+    } else if (method === 'POST') {
+      // Create a new customer
+      if (!body) {
+        throw createError({ statusCode: 400, statusMessage: 'Request body is missing' });
+      }
 
-    try {
+      const newCustomer = new Customer(body);
       await newCustomer.save();
-      return newCustomer;
-    } catch (error) {
-      console.error('Error saving customer:', error);
-      throw createError({ statusCode: 500, statusMessage: 'Error saving customer' });
-    }
-  }
+      return { message: 'Customer created successfully', customer: newCustomer };
 
-  // Handler for PUT request to update a customer
-  if (method === 'PUT') {
-    const id = event.context.params?.id;
-    const body = await readBody(event);
+    } else if (method === 'PUT') {
+      // Update an existing customer
+      if (!id || !body) {
+        throw createError({ statusCode: 400, statusMessage: 'Customer ID and request body are required for update' });
+      }
 
-    if (!id) {
-      throw createError({ statusCode: 400, statusMessage: 'Customer ID is required for update' });
-    }
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
+      }
 
-    // Check if the ID is valid
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
-    }
-
-    // Log the data for debugging
-    console.log('Updating customer with ID:', id);
-    console.log('Request Body:', body);
-
-    try {
       const updatedCustomer = await Customer.findByIdAndUpdate(id, body, {
         new: true,
-        runValidators: true
+        runValidators: true,
       });
 
       if (!updatedCustomer) {
         throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
       }
 
-      console.log('Updated Customer:', updatedCustomer);
-      return updatedCustomer;
-    } catch (error) {
-      console.error('Error updating customer:', error);
-      throw createError({ statusCode: 500, statusMessage: 'Error updating customer' });
-    }
-  }
+      return { message: 'Customer updated successfully', customer: updatedCustomer };
 
-  // Handler for DELETE request to delete a customer
-  if (method === 'DELETE') {
-    const id = event.context.params?.id;
+    } else if (method === 'DELETE') {
+      // Delete a customer
+      if (!id) {
+        throw createError({ statusCode: 400, statusMessage: 'Customer ID is required for deletion' });
+      }
 
-    if (!id) {
-      throw createError({ statusCode: 400, statusMessage: 'Customer ID is required for deletion' });
-    }
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
+      }
 
-    // Check if the ID is valid
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw createError({ statusCode: 400, statusMessage: 'Invalid ID format' });
-    }
-
-    console.log('Deleting customer with ID:', id);
-
-    try {
       const deletedCustomer = await Customer.findByIdAndDelete(id);
       if (!deletedCustomer) {
         throw createError({ statusCode: 404, statusMessage: 'Customer not found' });
       }
 
-      console.log('Deleted customer:', deletedCustomer);
       return { message: 'Customer deleted successfully' };
-    } catch (error) {
-      console.error('Error deleting customer:', error);
-      throw createError({ statusCode: 500, statusMessage: 'Error deleting customer' });
-    }
-  }
 
-  // Handle unsupported HTTP methods
-  throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' });
+    } else {
+      // Handle unsupported HTTP methods
+      throw createError({ statusCode: 405, statusMessage: 'Method Not Allowed' });
+    }
+  } catch (error) {
+    console.error('Error in API handler:', error);
+    throw createError({ statusCode: 500, statusMessage: 'Internal Server Error' });
+  }
 });
